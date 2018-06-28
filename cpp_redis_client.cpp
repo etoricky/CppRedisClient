@@ -24,9 +24,7 @@
 
 #include <iostream>
 
-#ifdef _WIN32
-#include <Winsock2.h>
-#endif /* _WIN32 */
+#include "WSA.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "./libs/Debug/tacopie.lib")
@@ -36,66 +34,83 @@
 #pragma comment(lib, "./libs/Release/cpp_redis.lib")
 #endif  
 
-int
-main(void) {
-#ifdef _WIN32
-  //! Windows netword DLL init
-  WORD version = MAKEWORD(2, 2);
-  WSADATA data;
+int test1() {
+	{
 
-  if (WSAStartup(version, &data) != 0) {
-    std::cerr << "WSAStartup() failure" << std::endl;
-    return -1;
-  }
+
+		//! Enable logging
+		cpp_redis::active_logger = std::unique_ptr<cpp_redis::logger>(new cpp_redis::logger);
+
+		cpp_redis::client client;
+
+		client.connect("172.31.118.243", 6379, [](const std::string& host, std::size_t port, cpp_redis::client::connect_state status) {
+			if (status == cpp_redis::client::connect_state::dropped) {
+				std::cout << "client disconnected from " << host << ":" << port << std::endl;
+			}
+		});
+
+		// auth,password
+		client.auth("redis123456", [](cpp_redis::reply& reply) {
+			std::cout << "auth info: " << reply << std::endl;
+			// if (reply.is_string())
+			//   do_something_with_string(reply.as_string())
+		});
+
+		client.sync_commit();
+
+		// same as client.send({ "SET", "hello", "42" }, ...)
+		client.set("hello", "42", [](cpp_redis::reply& reply) {
+			std::cout << "set hello 42: " << reply << std::endl;
+			// if (reply.is_string())
+			//   do_something_with_string(reply.as_string())
+		});
+
+		// same as client.send({ "DECRBY", "hello", 12 }, ...)
+		client.decrby("hello", 12, [](cpp_redis::reply& reply) {
+			std::cout << "decrby hello 12: " << reply << std::endl;
+			// if (reply.is_integer())
+			//   do_something_with_integer(reply.as_integer())
+		});
+
+		// same as client.send({ "GET", "hello" }, ...)
+		client.get("hello", [](cpp_redis::reply& reply) {
+			std::cout << "get hello: " << reply << std::endl;
+			// if (reply.is_string())
+			//   do_something_with_string(reply.as_string())
+		});
+
+		// commands are pipelined and only sent when client.commit() is called
+		// client.commit();
+
+		// synchronous commit, no timeout
+		client.sync_commit();
+
+		// synchronous commit, timeout
+		// client.sync_commit(std::chrono::milliseconds(100));
+
+
+
+		return 0;
+	}
+
+}
+
+int main(void) {
+
+#ifdef _WIN32
+	//! Windows netword DLL init
+	WORD version = MAKEWORD(2, 2);
+	WSADATA data;
+	if (WSAStartup(version, &data) != 0) {
+		std::cerr << "WSAStartup() failure" << std::endl;
+		return -1;
+	}
 #endif /* _WIN32 */
 
-  //! Enable logging
-  cpp_redis::active_logger = std::unique_ptr<cpp_redis::logger>(new cpp_redis::logger);
-
-  cpp_redis::client client;
-
-  client.connect("172.31.118.243", 6379, [](const std::string& host, std::size_t port, cpp_redis::client::connect_state status) {
-    if (status == cpp_redis::client::connect_state::dropped) {
-      std::cout << "client disconnected from " << host << ":" << port << std::endl;
-    }
-  });
-
-  // auth,password
-  client.auth("redis123456", [](cpp_redis::reply& reply) {
-    std::cout << "auth info: " << reply << std::endl;
-    // if (reply.is_string())
-    //   do_something_with_string(reply.as_string())
-  });
-
-  // same as client.send({ "SET", "hello", "42" }, ...)
-  client.set("hello", "42", [](cpp_redis::reply& reply) {
-    std::cout << "set hello 42: " << reply << std::endl;
-    // if (reply.is_string())
-    //   do_something_with_string(reply.as_string())
-  });
-
-  // same as client.send({ "DECRBY", "hello", 12 }, ...)
-  client.decrby("hello", 12, [](cpp_redis::reply& reply) {
-    std::cout << "decrby hello 12: " << reply << std::endl;
-    // if (reply.is_integer())
-    //   do_something_with_integer(reply.as_integer())
-  });
-
-  // same as client.send({ "GET", "hello" }, ...)
-  client.get("hello", [](cpp_redis::reply& reply) {
-    std::cout << "get hello: " << reply << std::endl;
-    // if (reply.is_string())
-    //   do_something_with_string(reply.as_string())
-  });
-
-  // commands are pipelined and only sent when client.commit() is called
-  // client.commit();
-
-  // synchronous commit, no timeout
-  client.sync_commit();
-
-  // synchronous commit, timeout
-  // client.sync_commit(std::chrono::milliseconds(100));
+	while (1) {
+		WSA wsa;
+		test1();
+	}
 
 #ifdef _WIN32
   WSACleanup();
